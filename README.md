@@ -1,12 +1,12 @@
 ## About
 
-Socket.IO bindings for CompoundJS
+Primus.IO bindings for CompoundJS
 
 ## Installataion
 
-    npm install co-socket --save
+    npm install co-primus --save
 
-then add `co-socket` to `config/autoload.js`
+then add `co-primus` to `config/autoload.js`
 
 ## API
 

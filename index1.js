@@ -1,18 +1,23 @@
 var Primus = require('primus.io');
+var passport = require('passport');
 var ControllerBridge = require('compound/lib/controller-bridge');
 
 
 exports.init = function (compound) {
 
-    var app = compound.app;
     var primus = new Primus(compound.server, { transformer: 'browserchannel' });
+
+    primus.app = {}
+    primus.app.stack = [];
+    primus.app.use = function(m) {
+        console.log("Primus use : >>>>> ", m.name);
+        primus.app.stack.push({handle: m});
+    }
+
+    var app = primus.app;
 
     // You can configure primus.io at this point.
     compound.emit('primus.io', primus);
-
-    compound.controllerExtensions.socket = function (id) {
-        return primus.in(id);
-    };
 
     var map = [];
 
@@ -26,8 +31,7 @@ exports.init = function (compound) {
 
     var cookieParser, session;
 
-    app.stack.forEach(function(m) {
-        console.log(m.handle);
+    compound.app.stack.forEach(function(m) {
         switch (m.handle.name) {
             case 'cookieParser':
                 cookieParser = m.handle;
@@ -38,38 +42,23 @@ exports.init = function (compound) {
         }
     });
 
+    app.use(cookieParser);
+    app.use(session);
+//    app.use(passport.initialize());
+//    app.use(passport.session());
+
     primus.on('connection', function (socket) {
         parseSocketCookies(socket, function(err) {
-            if (err) return console.log(">>> ERROR: socket connection: ", err);// socket.send('error', err);
+            if (err) return console.log("ERROR: ", err);// socket.send('error', err);
 
-            delete socket.session.csrfToken;
+            console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+            console.log('>>>>>>> A socket with sessionID: ' + socket.sessionID + ' connected!');
+
+//            delete socket.session.csrfToken;
 
             var bridge = new ControllerBridge(compound);
             map.forEach(function (r) {
-                if (r.event == 'new-connection') {
-                    var ctl = bridge.loadController(r.controller);
-                    ctl.perform(r.action, {
-                        method: 'SOCKET',
-                        url: r.action,
-                        app: app,
-                        param: function(key) {
-                            return null;
-                        },
-                        header: function() {
-                            return null;
-                        },
-                        session: socket.session,
-                        sessionID: socket.sessionID,
-                        params: null,
-                        socket: socket
-                    }, {send: function() {}}, function() {});
-                }
-            });
-
-            map.forEach(function (r) {
                 socket.on(r.event, function (data) {
-
-                    delete socket.session.csrfToken;
 
                     var ctl = bridge.loadController(r.controller);
                     ctl.perform(r.action, {
@@ -105,14 +94,41 @@ exports.init = function (compound) {
             // and leave the function.
             return next('No cookie transmitted.');
         }
+
         req.originalUrl = '/';
 
-        cookieParser(req, null, function (err) {
-            if (err) return next('Error in cookie parser');
-            session(req, {on: function(){}, end: function(){}}, function (err) {
-                if (err) return next('Error while reading session');
-                next();
+        var runHandler = function(nr) {
+//            console.log(i, app.stack.length, app.stack[i].handle.name);
+//            console.log("____________-----------------------------_",app.stack[nr]);
+//            console.log("____________-----------------------------_",app.stack[nr].handle.name);
+            console.log("____________-----------------------------_", nr, primus.app.stack[nr], primus.app.stack[nr].handle.name);
+
+
+//            console.log("-----------------=====================", nr);
+
+            primus.app.stack[nr].handle(req, {on: function(){}, end: function(){}}, function(err) {
+                console.log("session: ", req.session);
+
+                if (err) return next(err);
+
+                console.log("+++++++++++++++++++++++++ ", nr, primus.app.stack.length);
+
+                if (nr<app.stack.length) {
+                    runHandler(nr+1);
+                } else {
+                    next();
+                }
             });
-        });
+        }
+        runHandler(0);
+
+//        cookieParser(req, null, function (err) {
+//            if (err) return next('Error in cookie parser');
+//            session(req, {on: function(){}, end: function(){}}, function (err) {
+//                if (err) return next('Error while reading session');
+//                next();
+//            });
+//        });
     }
 };
+
