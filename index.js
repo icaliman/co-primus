@@ -42,36 +42,19 @@ exports.init = function (compound) {
         parseSocketCookies(socket, function(err) {
             if (err) return console.log(">>> ERROR: socket connection: ", err);// socket.send('error', err);
 
-            delete socket.session.csrfToken;
+            performController('connection', socket);
 
-            var bridge = new ControllerBridge(compound);
-            map.forEach(function (r) {
-                if (r.event == 'new-connection') {
-                    var ctl = bridge.loadController(r.controller);
-                    ctl.perform(r.action, {
-                        method: 'SOCKET',
-                        url: r.action,
-                        app: app,
-                        param: function(key) {
-                            return null;
-                        },
-                        header: function() {
-                            return null;
-                        },
-                        session: socket.session,
-                        sessionID: socket.sessionID,
-                        params: null,
-                        socket: socket
-                    }, {send: function() {}}, function() {});
-                }
-            });
+//            console.log('-=-=-=-=-===========================================',socket.id)
+
+//            primus.except(socket.id).send('new-message', 'test');
 
             map.forEach(function (r) {
                 socket.on(r.event, function (data) {
+                    var bridge = new ControllerBridge(compound);
+                    var ctl = bridge.loadController(r.controller);
 
                     delete socket.session.csrfToken;
 
-                    var ctl = bridge.loadController(r.controller);
                     ctl.perform(r.action, {
                         method: 'SOCKET',
                         url: r.action,
@@ -96,7 +79,39 @@ exports.init = function (compound) {
         console.log("----------------------------------------------------------------");
         console.log('A socket with sessionID: ' + socket.sessionID + ' disconnected!');
         // clear the socket interval to stop refreshing the session
+
+        performController('disconnection', socket);
     });
+
+    function performController(name, socket, data) {
+        var bridge = new ControllerBridge(compound);
+
+        if (!data) data = {};
+
+        map.forEach(function (r) {
+            if (r.event == name) {
+                var ctl = bridge.loadController(r.controller);
+
+                delete socket.session.csrfToken;
+
+                ctl.perform(r.action, {
+                    method: 'SOCKET',
+                    url: r.action,
+                    app: app,
+                    param: function(key) {
+                        return data[key];
+                    },
+                    header: function() {
+                        return null;
+                    },
+                    session: socket.session,
+                    sessionID: socket.sessionID,
+                    params: data,
+                    socket: socket
+                }, {send: function() {}}, function() {});
+            }
+        });
+    }
 
     function parseSocketCookies(req, next) {
         // check if there's a cookie header
