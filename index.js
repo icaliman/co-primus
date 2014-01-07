@@ -27,7 +27,6 @@ exports.init = function (compound) {
     var cookieParser, session;
 
     app.stack.forEach(function(m) {
-        console.log(m.handle);
         switch (m.handle.name) {
             case 'cookieParser':
                 cookieParser = m.handle;

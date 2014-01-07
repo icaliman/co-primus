@@ -2,7 +2,7 @@
     "author": "Caliman Ion <caliman_john@yahoo.com>",
     "name": "co-primus",
     "description": "CompoundJS&PrimusIO",
-    "version": "0.0.3",
+    "version": "0.0.3.1",
     "repository": {
         "type": "git",
         "url": "git@github.com:icaliman/co-primus.git"
@@ -12,7 +12,8 @@
         "node": ">= 0.6.x"
     },
     "dependencies": {
-        "primus.io": "*"
+        "primus.io": "*",
+        "browserchannel": "*"
     },
     "devDependencies": {},
     "optionalDependencies": {}
